@@ -1,0 +1,21 @@
+{
+    "name": "wty/co-mongo",
+    "authors": [
+        {
+            "name": "sakura",
+            "email": "466703496@qq.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=7.4.0",
+        "mongodb/mongodb": "1.6"
+    },
+
+    "autoload": {
+        "psr-4": {
+            "Wty\\Mongodb\\": "src/"
+        }
+    },
+    "description": "this is a mongodb coroutine client with swoole"
+}
