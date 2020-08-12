@@ -134,7 +134,7 @@ Array
     });
     
     $s = microtime(true) - $s;
-    echo 'Use ' . $s . 's for ' . N . ' insert with connection pool' . PHP_EOL;
+    echo 'Use ' . $s . 's for ' . (N*20) . ' insert with connection pool' . PHP_EOL;
     
     $s = microtime(true);
     
@@ -158,12 +158,14 @@ Array
     });
     
     $s = microtime(true) - $s;
-    echo 'Use ' . $s . 's for ' . N . ' insert without connection pool' . PHP_EOL;
+    echo 'Use ' . $s . 's for ' . (N*20) . ' insert without connection pool' . PHP_EOL;
 ```
 
 以上输出
 ```
-Use 1.9803111553192s for 1024 insert with connection pool
+Use 2.1558599472046s for 20480 insert with connection pool
 
-Use 20.072256803513s for 1024 insert without connection pool
+Use 21.772501945496s for 20480 insert without connection pool
 ```
+
+使用连接池连接数量稳定在20
