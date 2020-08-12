@@ -23,15 +23,17 @@ class Pool implements PoolInterface
     /** @var int */
     protected $num;
 
-    /** @var null|string */
-    protected $proxy;
-
     private $connection;
 
-    public function __construct(string $host, int $port, int $timeout, int $size = self::DEFAULT_SIZE, ?string $proxy = null)
+    private ?string $host;
+
+    private ?int $port;
+
+    public function __construct(int $size = self::DEFAULT_SIZE, int $timeout = 3000)
     {
         $this->size = $size;
-        $this->constructor = function () use($host, $port, $timeout){
+
+        $this->constructor = function () use($timeout){
             $client = new Client(SWOOLE_SOCK_TCP);
 
             $client->set([
@@ -47,26 +49,39 @@ class Pool implements PoolInterface
 
             $retry = 0;
 
-            while($client->connect($host, intval($port)) == false)
+            while($client->connect($this->host, intval($this->port)) == false)
             {
                 $client->close();
                 if(++$retry > 3)
                 {
-                    throw new \http\Exception\RuntimeException('can not connect to server');
+                    throw new RuntimeException('can not connect to server');
                 }
             }
 
             return $client;
         };
 
-
-        $this->proxy = $proxy;
-
         if($size > 0 && !$this->pool)
         {
             $this->pool = new Channel($size);
             $this->num = 0;
         }
+    }
+
+    /**
+     * @param string $host
+     */
+    public function setHost(string $host): void
+    {
+        $this->host = $host;
+    }
+
+    /**
+     * @param int $port
+     */
+    public function setPort(int $port): void
+    {
+        $this->port = $port;
     }
 
     public function fill(): void
@@ -89,7 +104,8 @@ class Pool implements PoolInterface
         if ($this->pool === null) {
             throw new RuntimeException('Pool has been closed');
         }
-        if ($this->pool->isEmpty() && $this->num < $this->size) {
+        if ($this->pool->isEmpty() && $this->num < $this->size)
+        {
             $this->make();
         }
         return $this->pool->pop();
@@ -129,19 +145,15 @@ class Pool implements PoolInterface
 
     protected function make(): void
     {
-        if($this->size == 0)
-        {
-            $constructor = $this->constructor;
-            $this->connection = $constructor();
-            return;
-        }
         $this->num++;
         try {
-            if ($this->proxy) {
-                $connection = new $this->proxy($this->constructor);
-            } else {
-                $constructor = $this->constructor;
-                $connection = $constructor();
+            $constructor = $this->constructor;
+            $connection = $constructor();
+
+            if($this->size == 0)
+            {
+                $this->num--;
+                return;
             }
         } catch (Throwable $throwable) {
             $this->num--;

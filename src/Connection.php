@@ -11,10 +11,6 @@ class Connection
 {
     private ?Client $client = null;
 
-    private string $host;
-
-    private int $port;
-
     private int $id;
 
     private int $timeout;
@@ -28,17 +24,18 @@ class Connection
     public function __construct(string $host, int $port, ?PoolInterface $pool = null)
     {
         $this->id = 0;
-        $this->host = $host;
-        $this->port = $port;
-
-//        $this->initClient();
 
         if(is_null($pool))
         {
-            $this->pool = new Pool($this->host, $this->port, 3000);
+            $this->pool = new Pool();
         }
         else
+        {
             $this->pool = $pool;
+        }
+
+        $this->pool->setHost($host);
+        $this->pool->setPort($port);
     }
 
     public function __destruct()
@@ -74,6 +71,7 @@ class Connection
     public function send($data)
     {
         $this->reconnect();
+
         $this->client->send($data);
         $this->recieve = $this->client->recv(3);
         $this->close();

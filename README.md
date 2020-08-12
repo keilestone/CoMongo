@@ -114,7 +114,7 @@ Array
     $s = microtime(true);
     
     Coroutine\run(function () {
-        $pool = new Wty\Mongodb\Pool('localhost', 27017, 3000, 20);
+        $pool = new Wty\Mongodb\Pool( 20);
     
         for ($n = N; $n--;) {
             Coroutine::create(function () use ($pool) {

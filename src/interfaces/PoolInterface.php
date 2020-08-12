@@ -11,4 +11,8 @@ interface PoolInterface
     public function get();
 
     public function put($connect);
+
+    public function setHost(string $host):void;
+
+    public function setPort(int $port):void;
 }

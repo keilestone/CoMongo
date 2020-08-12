@@ -28,7 +28,7 @@ class Mongodb
 
     private ?string $database = null;
 
-    private $pool = null;
+    private $pool;
 
     private array $connectionArr = [];
 
