@@ -241,13 +241,11 @@ class Cursor implements \Iterator
 
     public function cursorNext(): ?array
     {
-        $this->collection->getDb()->connect();
-
         if($this->finished())
         {
             if($this->id != 0)
             {
-                $this->collection->getDb()->getConnection()->killCursors($this->id);
+                $this->collection->getDb()->getManager()->killCursors($this->id);
                 $this->id = 0;
             }
 
@@ -256,9 +254,7 @@ class Cursor implements \Iterator
 
         if(!$this->start && $this->id == 0)
         {
-            $reply = $this->collection->getDb()
-                ->getConnection()
-                ->query($this->collection->fullName(), $this->buildQuery(),
+            $reply = $this->collection->getDb()->getManager()->query($this->collection->fullName(), $this->buildQuery(),
                 $this->skip, $this->limit == 0 ? self::DEFAULT_QUERY_MAX : $this->limit, $this->fields, ['tailable' => $this->tailable, 'await' => $this->await]);
 
             if(Utils::checkFlags($reply->getFlags()))
@@ -272,7 +268,7 @@ class Cursor implements \Iterator
         }
         elseif (empty($this->docs) && $this->id != 0)
         {
-            $reply = $this->collection->getDb()->getConnection()
+            $reply = $this->collection->getDb()->getManager()
                 ->getMore($this->collection->fullName(), $this->limit == 0 ? self::DEFAULT_QUERY_MAX : $this->limit, $this->id);
 
             if(Utils::checkFlags($reply->getFlags()))
@@ -296,13 +292,13 @@ class Cursor implements \Iterator
     {
         $this->start = false;
         $this->docs = [];
-        $this->collection->getDb()->getConnection()->killCursors($this->id);
+        $this->collection->getDb()->getManager()->killCursors($this->id);
         $this->id = 0;
     }
 
     public function count()
     {
-        $ret = $this->collection->getDb()->getConnection()->runCmd($this->collection->getDb()->getDatabase(), [
+        $ret = $this->collection->getDb()->getManager()->executeCmd([
             'count' => $this->collection->getName()
         ], [
             'query' => $this->query,
@@ -318,7 +314,7 @@ class Cursor implements \Iterator
 
     public function distinct($key)
     {
-        $ret = $this->collection->getDb()->getConnection()->runCmd($this->collection->getDb()->getDatabase(), [
+        $ret = $this->collection->getDb()->getManager()->executeCmd( [
             'distinct' => $this->collection->getName()
         ], [
             'query' => $this->query,

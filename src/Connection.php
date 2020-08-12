@@ -1,8 +1,9 @@
 <?php
 namespace Wty\Mongodb;
 
-use MongoDB\BSON\Binary;
+use http\Exception\RuntimeException;
 use Swoole\Coroutine\Client;
+use Wty\Mongodb\interfaces\PoolInterface;
 use function MongoDB\BSON\fromPHP;
 use function MongoDB\BSON\toPHP;
 
@@ -20,67 +21,67 @@ class Connection
 
     private ?string $error = null;
 
-    public function __construct(string $host, int $port, int $timeout = 3000)
-    {
-        $this->timeout = $timeout;
+    private PoolInterface $pool;
 
+    private $recieve;
+
+    public function __construct(string $host, int $port, ?PoolInterface $pool = null)
+    {
         $this->id = 0;
         $this->host = $host;
         $this->port = $port;
 
-        $this->initClient();
+//        $this->initClient();
+
+        if(is_null($pool))
+        {
+            $this->pool = new Pool($this->host, $this->port, 3000);
+        }
+        else
+            $this->pool = $pool;
     }
 
-    private function initClient()
+    public function __destruct()
     {
-        $this->client = new Client(SWOOLE_SOCK_TCP);
-
-        $this->client->set([
-            'timeout' => $this->timeout / 1000,
-            'open_length_check' => true,
-            'package_length_func' => function($data){
-                $arr = unpack('Vlen', $data);
-
-                return $arr['len'];
-            },
-
-        ]);
+//        $this->pool->close();
     }
 
     public function connect()
     {
-        if(!$this->client->isConnected())
-            $this->client->connect($this->host, intval($this->port));
+        $this->client = $this->pool->get();
     }
 
     public function close()
     {
-        $this->client->close();
+        $this->pool->put($this->client);
         $this->client = null;
     }
 
     public function reconnect()
     {
+//        if(is_null($this->client))
+//        {
+//            $this->initClient();
+//            $this->connect();
+//        }
+//        elseif(!$this->client->isConnected())
+//        {
         if(is_null($this->client))
-        {
-            $this->initClient();
             $this->connect();
-        }
-        elseif(!$this->client->isConnected())
-        {
-            $this->connect();
-        }
+//        }
     }
 
     public function send($data)
     {
         $this->reconnect();
         $this->client->send($data);
+        $this->recieve = $this->client->recv(3);
+        $this->close();
     }
 
-    public function receive(float $timeout = 3): ?string
+    public function receive(): ?string
     {
-        $rs = $this->client->recv($timeout);
+        $rs = $this->recieve;
 
         if($rs === false)
         {
@@ -264,8 +265,6 @@ class Connection
 
         $sections = pack('C', 0) . fromPHP($body);
 
-        $this->reconnect();
-
         if(!empty($sequence))
         {
             $docs = '';
@@ -293,8 +292,6 @@ class Connection
 
     public function runCmd(string $db, array $cmd, array $params = [])
     {
-        $this->reconnect();
-
         $command = array_merge($cmd, $params);
 
         $reply = $this->query($db . '.$cmd', $command,0, 1);

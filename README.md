@@ -104,3 +104,66 @@ Array
 )
 1
 ```
+
+连接池
+```php
+    Runtime::enableCoroutine();
+    
+    const N = 1024;
+    
+    $s = microtime(true);
+    
+    Coroutine\run(function () {
+        $pool = new Wty\Mongodb\Pool('localhost', 27017, 3000, 20);
+    
+        for ($n = N; $n--;) {
+            Coroutine::create(function () use ($pool) {
+                $m = new \Wty\Mongodb\Mongodb('mongodb://localhost', $pool);
+                $db = $m->setDatabase('test')->getCollection('test');
+    
+                $t = 0;
+                do
+                {
+                    $db->insert([]);
+    
+                    if($t++ > 20)break;
+                }
+                while(true);
+            });
+        }
+    });
+    
+    $s = microtime(true) - $s;
+    echo 'Use ' . $s . 's for ' . N . ' insert with connection pool' . PHP_EOL;
+    
+    $s = microtime(true);
+    
+    Coroutine\run(function () {
+        for ($n = N; $n--;) {
+            Coroutine::create(function () {
+                $m = new \Wty\Mongodb\Mongodb('mongodb://localhost');
+                $db = $m->setDatabase('test')->getCollection('test');
+    
+                $t = 0;
+                do
+                {
+                    $db->insert([]);
+    
+                    if($t++ > 20)break;
+                }
+                while(true);
+            });
+        }
+    
+    });
+    
+    $s = microtime(true) - $s;
+    echo 'Use ' . $s . 's for ' . N . ' insert without connection pool' . PHP_EOL;
+```
+
+以上输出
+```
+Use 1.9803111553192s for 1024 insert with connection pool
+
+Use 20.072256803513s for 1024 insert without connection pool
+```

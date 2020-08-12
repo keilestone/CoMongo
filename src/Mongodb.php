@@ -17,6 +17,8 @@ class Mongodb
     public ?int $stimeout = null;
     public array $hosts;
 
+
+    private bool $connected = false;
     private string $defaultDb;
     private ?string $username = null;
     private ?string $password = null;
@@ -26,7 +28,13 @@ class Mongodb
 
     private ?string $database = null;
 
-    public function __construct(string $url)
+    private $pool = null;
+
+    private array $connectionArr = [];
+
+    private Manager $manager;
+
+    public function __construct(string $url, $pool = null)
     {
         $config = Utils::parseUrl($url);
 
@@ -56,6 +64,10 @@ class Mongodb
         $this->username = $config['user'] ?? null;
         $this->password = $config['password'] ?? null;
         $this->defaultDb = $config['database'];
+
+        $this->manager = new Manager($this);
+
+        $this->pool = $pool;
     }
 
     /**
@@ -101,23 +113,21 @@ class Mongodb
 
     public function getCollection(string $name): Collection
     {
-        return new Collection($this, $name);
-    }
-    /**
-     * @return Connection|null
-     */
-    public function getConnection(): ?Connection
-    {
-        return $this->connection;
+        if(!isset($this->connectionArr[$name]))
+            $this->connectionArr[$name] = new Collection($this, $name);
+
+        return $this->connectionArr[$name];
     }
 
     public function connect()
     {
+        if($this->connected)return;
+
         shuffle($this->hosts);
 
         foreach ($this->hosts as $host)
         {
-            $this->connection = new Connection($host['host'], $host['port']);
+            $this->connection = new Connection($host['host'], $host['port'],  $this->pool);
 
             if(is_null($this->version))
             {
@@ -157,7 +167,11 @@ class Mongodb
                         }
                     }
 
-                    $this->auth();
+                    $this->connected = $this->auth();
+                }
+                else
+                {
+                    $this->connected = true;
                 }
 
                 return;
@@ -170,6 +184,17 @@ class Mongodb
 
         throw new ConnectException('can not connect to server');
     }
+
+    public function getManager()
+    {
+        return $this->manager;
+    }
+
+    public function getConnection()
+    {
+        return $this->connection;
+    }
+
 
     public function close()
     {

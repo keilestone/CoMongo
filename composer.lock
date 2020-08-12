@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "18e62d6808e02cdcc56d31acaa81bc75",
+    "content-hash": "6e09a9885c40a85e2b6ab8a85a91357a",
     "packages": [
         {
             "name": "mongodb/mongodb",
@@ -81,10 +81,53 @@
             "time": "2020-02-04T18:16:35+00:00"
         }
     ],
-    "packages-dev": [],
+    "packages-dev": [
+        {
+            "name": "swoole/ide-helper",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/swoole/ide-helper.git",
+                "reference": "9082983c671cd79f461fcb9e52687dccca993e9b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/swoole/ide-helper/zipball/9082983c671cd79f461fcb9e52687dccca993e9b",
+                "reference": "9082983c671cd79f461fcb9e52687dccca993e9b",
+                "shasum": "",
+                "mirrors": [
+                    {
+                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
+                        "preferred": true
+                    }
+                ]
+            },
+            "require-dev": {
+                "guzzlehttp/guzzle": "~6.5.0",
+                "laminas/laminas-code": "~3.4.0",
+                "squizlabs/php_codesniffer": "~3.5.0",
+                "symfony/filesystem": "~4.0"
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Team Swoole",
+                    "email": "team@swoole.com"
+                }
+            ],
+            "description": "IDE help files for Swoole.",
+            "time": "2020-08-05T18:18:55+00:00"
+        }
+    ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {
+        "swoole/ide-helper": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

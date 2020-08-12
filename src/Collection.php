@@ -162,23 +162,22 @@ class Collection
 
         if($serverVer < 2540)
         {
-            $this->getDb()->getConnection()->insert($this->fullName(),$docs);
+            $this->getDb()->getManager()->insert($this->fullName(),$docs);
 
             return $this->checkLastError($ids);
         }
         elseif ($serverVer > 3600)
         {
-            $replies = $this->getDb()->getConnection()->msg([
+            $replies = $this->getDb()->getManager()->executeCmd([
                 'insert' => $this->name,
                 'ordered' => true,
-                '$db' => $this->getDb()->getDatabase()
             ], $docs);
 
             $reply = $replies->getDocs()[0];
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(), ['insert' => $this->name], [
+            $reply = $this->getDb()->getManager()->executeCmd( ['insert' => $this->name], [
                 'documents' => $docs,
                 'ordered' => true,
                 'writeConcern' => $this->buildWriteConcern()
@@ -200,9 +199,8 @@ class Collection
 
         if ($serverVer > 3600)
         {
-            $replies = $this->getDb()->getConnection()->msg([
+            $replies = $this->getDb()->getManager()->executeCmd([
                 'drop' => $this->name,
-                '$db' => $this->getDb()->getDatabase()
             ]);
 
             $reply = $replies->getDocs()[0];
@@ -212,7 +210,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(), ['drop' => $this->name]);
+            $reply = $this->getDb()->getManager()->executeCmd( ['drop' => $this->name]);
 
             if(empty($reply))
                 return false;
@@ -227,10 +225,9 @@ class Collection
 
         if ($serverVer > 3600)
         {
-            $replies = $this->getDb()->getConnection()->msg([
+            $replies = $this->getDb()->getManager()->executeCmd([
                 'dropIndexes' => $this->name,
                 'index' => $name,
-                '$db' => $this->getDb()->getDatabase()
             ]);
 
             $reply = $replies->getDocs()[0];
@@ -240,7 +237,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(), ['dropIndexes' => $this->name], ['index' => $name]);
+            $reply = $this->getDb()->getManager()->executeCmd( ['dropIndexes' => $this->name], ['index' => $name]);
 
             if(empty($reply))
                 return false;
@@ -283,10 +280,9 @@ class Collection
 
         if ($serverVer > 3600)
         {
-            $replies = $this->getDb()->getConnection()->msg([
+            $replies = $this->getDb()->getManager()->executeCmd([
                 'createIndexes' => $this->name,
                 'indexes' => $index,
-                '$db' => $this->getDb()->getDatabase()
             ]);
 
             $reply = $replies->getDocs()[0];
@@ -296,7 +292,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(), ['createIndexes' => $this->name], ['indexes' => $index]);
+            $reply = $this->getDb()->getManager()->executeCmd(['createIndexes' => $this->name], ['indexes' => $index]);
 
             if(empty($reply))
                 return false;
@@ -340,7 +336,6 @@ class Collection
             $body = [
                 'aggregate' => $this->name,
                 'pipeline' => $pipeline,
-                '$db' => $this->getDb()->getDatabase(),
             ];
 
             foreach ($options as $k => $option)
@@ -348,7 +343,7 @@ class Collection
                 $body[$k] = $option;
             }
 
-            $ret = $this->db->getConnection()->msg($body);
+            $ret = $this->db->getManager()->executeCmd($body);
 
             $doc = $ret->getDocs()[0];
         }
@@ -356,7 +351,7 @@ class Collection
         {
             $options['pipeline'] = $pipeline;
 
-            $doc = $this->cmd([
+            $doc = $this->getDb()->getManager()->executeCmd([
                 'aggregate' => $this->name
             ], $options);
 
@@ -414,7 +409,7 @@ class Collection
 
         if ($serverVer > 3600)
         {
-            $replies = $this->getDb()->getConnection()->msg([
+            $replies = $this->getDb()->getManager()->executeCmd([
                 'delete' => $this->name,
                 'deletes' => [
                     [
@@ -424,7 +419,6 @@ class Collection
                 ],
                 'ordered' => true,
                 'writeConcern' => $this->buildWriteConcern(),
-                '$db' => $this->getDb()->getDatabase()
             ]);
 
             $reply = $replies->getDocs()[0];
@@ -434,7 +428,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(),
+            $reply = $this->getDb()->getManager()->executeCmd(
                 [
                     'delete' => $this->name
                 ],
@@ -467,7 +461,6 @@ class Collection
         {
             $body = [
                 'findAndModify' => $this->name,
-                '$db' => $this->getDb()->getDatabase()
             ];
 
             foreach ($options as $k => $v)
@@ -475,7 +468,7 @@ class Collection
                 $body[$k] = $v;
             }
 
-            $replies = $this->getDb()->getConnection()->msg($body);
+            $replies = $this->getDb()->getManager()->executeCmd($body);
 
             $reply = $replies->getDocs()[0];
 
@@ -484,7 +477,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(),
+            $reply = $this->getDb()->getManager()->executeCmd(
                 [
                     'findAndModify' => $this->name
                 ],
@@ -521,7 +514,7 @@ class Collection
 
         if ($serverVer > 3600)
         {
-            $replies = $this->getDb()->getConnection()->msg([
+            $replies = $this->getDb()->getManager()->executeCmd([
                 'update' => $this->name,
                 'updates' => [
                     [
@@ -533,7 +526,6 @@ class Collection
                 ],
                 'ordered' => true,
                 'writeConcern' => $this->buildWriteConcern(),
-                '$db' => $this->getDb()->getDatabase()
             ]);
 
             $reply = $replies->getDocs()[0];
@@ -543,7 +535,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(),
+            $reply = $this->getDb()->getManager()->executeCmd(
                 [
                     'update' => $this->name
                 ],
@@ -588,7 +580,7 @@ class Collection
         $options['reduce'] = $reduce;
         $options['out'] = $out;
 
-        $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(),
+        $reply = $this->getDb()->getManager()->executeCmd(
             [
                 'mapReduce' => $this->name
             ],
@@ -607,11 +599,10 @@ class Collection
 
         if ($serverVer > 3600)
         {
-            $replies = $this->getDb()->getConnection()->msg([
+            $replies = $this->getDb()->getManager()->executeCmd([
                 'distinct' => $this->name,
                 'key' => $column,
                 'query' => (object) $wheres,
-                '$db' => $this->getDb()->getDatabase()
             ]);
 
             $reply = $replies->getDocs()[0];
@@ -621,7 +612,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getConnection()->runCmd($this->db->getDatabase(),
+            $reply = $this->getDb()->getManager()->executeCmd(
                 [
                     'distinct' => $this->name
                 ],
@@ -636,10 +627,5 @@ class Collection
         }
 
         return $reply->values;
-    }
-
-    private function cmd(array $cmd, array $opts = [])
-    {
-        return $this->db->getConnection()->runCmd($this->getDb()->getDatabase(), $cmd, $opts);
     }
 }

@@ -17,5 +17,8 @@
             "Wty\\Mongodb\\": "src/"
         }
     },
-    "description": "this is a mongodb coroutine client with swoole"
+    "description": "this is a mongodb coroutine client with swoole",
+    "require-dev": {
+        "swoole/ide-helper": "@dev"
+    }
 }
