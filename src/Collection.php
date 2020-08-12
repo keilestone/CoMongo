@@ -390,7 +390,7 @@ class Collection
         ];
         $ret = $this->aggregate($pipeline, $options)->getDocs();
 
-        return ($ret[0])->count;
+        return empty($ret) ? 0 : $ret[0]->count;
     }
 
     public function deleteOne(array $filter, array $options = [])
