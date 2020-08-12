@@ -105,7 +105,7 @@ class Pool implements PoolInterface
         if ($this->pool === null) {
             return;
         }
-        if ($connection !== null || $connection->isConnected()) {
+        if ($connection !== null && $connection->isConnected()) {
             $this->pool->push($connection);
         } else {
             /* connection broken */
