@@ -19,7 +19,7 @@ class Manager
 
     public function executeCmd(array $cmd, array $params = [])
     {
-        $this->mongodb->connect();
+//        $this->mongodb->connect();
 
         $serverVer = join('', $this->mongodb->getVersion());
 
@@ -27,37 +27,55 @@ class Manager
         {
             $cmd['$db'] = $this->mongodb->getDatabase();
 
-            return $this->mongodb->getConnection()->msg($cmd, $params);
+            $ret = $this->mongodb->getConnection()->msg($cmd, $params);
         }
         else
-            return $this->mongodb->getConnection()->runCmd($this->mongodb->getDatabase(), $cmd, $params);
+            $ret = $this->mongodb->getConnection()->runCmd($this->mongodb->getDatabase(), $cmd, $params);
+
+//        $this->mongodb->close();
+
+        return $ret;
     }
 
     public function killCursors(int $id)
     {
-        $this->mongodb->connect();
+//        $this->mongodb->connect();
 
         $this->mongodb->getConnection()->killCursors($id);
+
+//        $this->mongodb->close();
     }
 
     public function query(string $collection, array $query, int $toSkip = 0, int $num = 255, array $selector = [], array $flags = []): ?Reply
     {
-        $this->mongodb->connect();
+//        $this->mongodb->connect();
 
-        return $this->mongodb->getConnection()->query($collection, $query, $toSkip, $num, $selector, $flags);
+        $ret = $this->mongodb->getConnection()->query($collection, $query, $toSkip, $num, $selector, $flags);
+
+//        $this->mongodb->close();
+
+        return $ret;
     }
 
     public function insert(string $collection, array $docs, array $flags = []): bool
     {
-        $this->mongodb->connect();
+//        $this->mongodb->connect();
 
-        return $this->mongodb->getConnection()->insert($collection, $docs, $flags);
+        $ret = $this->mongodb->getConnection()->insert($collection, $docs, $flags);
+
+//        $this->mongodb->close();
+
+        return $ret;
     }
 
     public function getMore(string $collection, int $number, int $cid): ?Reply
     {
-        $this->mongodb->connect();
+//        $this->mongodb->connect();
 
-        return $this->mongodb->getConnection()->getMore($collection, $number, $cid);
+        $ret = $this->mongodb->getConnection()->getMore($collection, $number, $cid);
+
+//        $this->mongodb->close();
+
+        return $ret;
     }
 }

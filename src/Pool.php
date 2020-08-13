@@ -3,7 +3,6 @@ namespace Wty\Mongodb;
 
 use RuntimeException;
 use Swoole\Coroutine\Channel;
-use Swoole\Coroutine\Client;
 use Throwable;
 use Wty\Mongodb\interfaces\PoolInterface;
 
@@ -121,6 +120,7 @@ class Pool implements PoolInterface
         if ($this->pool === null) {
             return;
         }
+
         if ($connection !== null && $connection->isConnected()) {
             $this->pool->push($connection);
         } else {

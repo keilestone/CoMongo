@@ -17,8 +17,6 @@ class Mongodb
     public ?int $stimeout = null;
     public array $hosts;
 
-
-    private bool $connected = false;
     private string $defaultDb;
     private ?string $username = null;
     private ?string $password = null;
@@ -95,7 +93,11 @@ class Mongodb
     {
         if(is_null($this->version))
         {
-            $this->connect();
+            $ret = $this->connection->runCmd($this->defaultDb, [
+                'buildInfo' => true
+            ], []);
+
+            $this->version = $ret->versionArray;
         }
 
         return $this->version;
@@ -119,9 +121,14 @@ class Mongodb
         return $this->connectionArr[$name];
     }
 
+    public function __destruct()
+    {
+//        $this->close();
+    }
+
     public function connect()
     {
-        if($this->connected)return;
+        if(!is_null($this->connection))return;
 
         shuffle($this->hosts);
 
@@ -129,14 +136,9 @@ class Mongodb
         {
             $this->connection = new Connection($host['host'], $host['port'],  $this->pool);
 
-            if(is_null($this->version))
-            {
-                $ret = $this->connection->runCmd($this->defaultDb, [
-                    'buildInfo' => true
-                ], []);
+            $this->connection->connect();
 
-                $this->version = $ret->versionArray;
-            }
+            $this->getVersion();
 
             $ret = $this->connection->runCmd($this->defaultDb, [
                 'isMaster' => 1,
@@ -148,6 +150,8 @@ class Mongodb
             {
                 continue;
             }
+
+            if($this->connection->isAuth())return;
 
             if($ret->ismaster)
             {
@@ -167,13 +171,14 @@ class Mongodb
                         }
                     }
 
-                    $this->connected = $this->auth();
+                    $this->auth();
                 }
                 else
                 {
-                    $this->connected = true;
+                    $this->connection->connect();
                 }
 
+                $this->connection->setAuth();
                 return;
             }
             elseif($ret->primary)

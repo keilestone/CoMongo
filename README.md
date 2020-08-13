@@ -3,7 +3,7 @@
 ```php
 Swoole\Coroutine::create(function (){
     $m = new \Wty\Mongodb\Mongodb('mongodb://localhost');
-
+    $m->connect();
     $db = $m->setDatabase('test')->getCollection('test');
 
     $r = $db->insertOne(['name' => 'test']);
@@ -45,6 +45,8 @@ Swoole\Coroutine::create(function (){
     ]);
 
    print_r($r);
+    
+    $m->close();
 });
 ```
 
@@ -119,6 +121,8 @@ Array
         for ($n = N; $n--;) {
             Coroutine::create(function () use ($pool) {
                 $m = new \Wty\Mongodb\Mongodb('mongodb://localhost', $pool);
+                $m->connect();
+
                 $db = $m->setDatabase('test')->getCollection('test');
     
                 $t = 0;
@@ -129,6 +133,7 @@ Array
                     if($t++ > 20)break;
                 }
                 while(true);
+                $m->close();
             });
         }
     });
@@ -143,7 +148,8 @@ Array
             Coroutine::create(function () {
                 $m = new \Wty\Mongodb\Mongodb('mongodb://localhost');
                 $db = $m->setDatabase('test')->getCollection('test');
-    
+                
+                $m->connect();
                 $t = 0;
                 do
                 {
@@ -152,6 +158,8 @@ Array
                     if($t++ > 20)break;
                 }
                 while(true);
+                
+                $m->close();
             });
         }
     

@@ -1,8 +1,6 @@
 <?php
 namespace Wty\Mongodb;
 
-use http\Exception\RuntimeException;
-use Swoole\Coroutine\Client;
 use Wty\Mongodb\interfaces\PoolInterface;
 use function MongoDB\BSON\fromPHP;
 use function MongoDB\BSON\toPHP;
@@ -13,13 +11,12 @@ class Connection
 
     private int $id;
 
-    private int $timeout;
-
     private ?string $error = null;
 
     private PoolInterface $pool;
 
     private $recieve;
+
 
     public function __construct(string $host, int $port, ?PoolInterface $pool = null)
     {
@@ -38,14 +35,28 @@ class Connection
         $this->pool->setPort($port);
     }
 
+
     public function __destruct()
     {
 //        $this->pool->close();
     }
 
+    public function setAuth()
+    {
+        $this->client->setAuth();
+    }
+
+    public function isAuth(): bool
+    {
+        return $this->client->isAuth();
+    }
+
     public function connect()
     {
-        $this->client = $this->pool->get();
+        if(is_null($this->client))
+            $this->client = $this->pool->get();
+
+        return $this->client;
     }
 
     public function close()
@@ -54,27 +65,12 @@ class Connection
         $this->client = null;
     }
 
-    public function reconnect()
-    {
-//        if(is_null($this->client))
-//        {
-//            $this->initClient();
-//            $this->connect();
-//        }
-//        elseif(!$this->client->isConnected())
-//        {
-        if(is_null($this->client))
-            $this->connect();
-//        }
-    }
-
     public function send($data)
     {
-        $this->reconnect();
-
+//        $this->connect();
         $this->client->send($data);
         $this->recieve = $this->client->recv(3);
-        $this->close();
+//        $this->close();
     }
 
     public function receive(): ?string
