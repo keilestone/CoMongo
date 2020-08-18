@@ -1,6 +1,8 @@
 <?php
 namespace Wty\Mongodb;
 
+use RuntimeException;
+use Swoole\Coroutine\Client;
 use Wty\Mongodb\interfaces\PoolInterface;
 use function MongoDB\BSON\fromPHP;
 use function MongoDB\BSON\toPHP;
@@ -13,26 +15,22 @@ class Connection
 
     private ?string $error = null;
 
-    private PoolInterface $pool;
-
     private $recieve;
 
+    private bool $auth = false;
 
-    public function __construct(string $host, int $port, ?PoolInterface $pool = null)
+    private string $host;
+    private int $port;
+    private int $timeout;
+
+
+    public function __construct(string $host, int $port, int $timeout = 3000)
     {
+        $this->host = $host;
+        $this->port = $port;
+        $this->timeout = $timeout;
+
         $this->id = 0;
-
-        if(is_null($pool))
-        {
-            $this->pool = new Pool();
-        }
-        else
-        {
-            $this->pool = $pool;
-        }
-
-        $this->pool->setHost($host);
-        $this->pool->setPort($port);
     }
 
 
@@ -41,27 +39,59 @@ class Connection
 //        $this->pool->close();
     }
 
+    public function isConnected()
+    {
+        if(is_null($this->client))
+            return false;
+
+        return $this->client->isConnected();
+    }
+
     public function setAuth()
     {
-        $this->client->setAuth();
+        $this->auth = true;
     }
 
     public function isAuth(): bool
     {
-        return $this->client->isAuth();
+        return $this->auth;
     }
 
     public function connect()
     {
         if(is_null($this->client))
-            $this->client = $this->pool->get();
+        {
+            $this->client = new Client(SWOOLE_SOCK_TCP);
 
-        return $this->client;
+            $this->client->set([
+                'timeout' => $this->timeout / 1000,
+                'open_length_check' => true,
+                'package_length_func' => function($data){
+                    $arr = unpack('Vlen', $data);
+
+                    return $arr['len'];
+                },
+
+            ]);
+
+            $retry = 0;
+
+            while($this->client->connect($this->host, intval($this->port)) == false)
+            {
+                $this->client->close();
+                if(++$retry > 3)
+                {
+                    throw new RuntimeException('can not connect to server');
+                }
+            }
+        }
+
+//        return $this->client;
     }
 
     public function close()
     {
-        $this->pool->put($this->client);
+        $this->client->close();
         $this->client = null;
     }
 

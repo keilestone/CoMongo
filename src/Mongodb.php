@@ -7,6 +7,7 @@ namespace Wty\Mongodb;
 use Swoole\Coroutine;
 use Wty\Mongodb\Authenticate\Scram;
 use Wty\Mongodb\Exceptions\ConnectException;
+use Wty\Mongodb\interfaces\PoolInterface;
 
 class Mongodb
 {
@@ -26,7 +27,7 @@ class Mongodb
 
     private ?string $database = null;
 
-    private $pool;
+    private ?PoolInterface $pool;
 
     private array $connectionArr = [];
 
@@ -134,11 +135,21 @@ class Mongodb
 
         foreach ($this->hosts as $host)
         {
-            $this->connection = new Connection($host['host'], $host['port'],  $this->pool);
+            if(is_null($this->pool))
+                $this->connection = new Connection($host['host'], $host['port']);
+            else
+            {
+                $this->pool->setHost($host['host']);
+                $this->pool->setPort($host['port']);
+
+                $this->connection = $this->pool->get();
+            }
 
             $this->connection->connect();
 
             $this->getVersion();
+
+            if($this->connection->isAuth())return;
 
             $ret = $this->connection->runCmd($this->defaultDb, [
                 'isMaster' => 1,
@@ -150,8 +161,6 @@ class Mongodb
             {
                 continue;
             }
-
-            if($this->connection->isAuth())return;
 
             if($ret->ismaster)
             {
@@ -203,6 +212,11 @@ class Mongodb
 
     public function close()
     {
-        $this->connection->close();
+        if(is_null($this->pool))
+        {
+            $this->connection->close();
+            return;
+        }
+        $this->pool->put($this->connection);
     }
 }

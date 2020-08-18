@@ -136,7 +136,9 @@ class Collection
 
     public function insertOne(array $doc)
     {
-        return $this->insert($doc);
+        $ret = $this->insert($doc);
+
+        return $ret['ids'][0];
     }
 
     public function insertMany(array $docs)
@@ -314,7 +316,7 @@ class Collection
     {
         $opts['limit'] = 1;
 
-        return $this->find($query, $opts);
+        return $this->find($query, $opts)->getDocs()[0];
     }
 
     /**

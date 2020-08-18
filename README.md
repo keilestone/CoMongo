@@ -116,26 +116,40 @@ Array
     $s = microtime(true);
     
     Coroutine\run(function () {
-        $pool = new Wty\Mongodb\Pool( 20);
-    
-        for ($n = N; $n--;) {
-            Coroutine::create(function () use ($pool) {
-                $m = new \Wty\Mongodb\Mongodb('mongodb://localhost', $pool);
-                $m->connect();
-
-                $db = $m->setDatabase('test')->getCollection('test');
-    
-                $t = 0;
-                do
-                {
-                    $db->insert([]);
-    
-                    if($t++ > 20)break;
-                }
-                while(true);
-                $m->close();
-            });
-        }
+            $pool = new \Wty\Mongodb\Pool(10);
+        
+            $s = microtime(true);
+        
+            for($i = N; $i--;)
+            {
+                Coroutine::create(function () use($pool, $s){
+                    $db = new Wty\Mongodb\Mongodb(URL, $pool);
+        
+                    $db->setDatabase(DB);
+        
+                    $col = $db->getCollection(COLLECTION);
+        
+                    $db->connect();
+        
+                    $ret = $col->insertOne([
+                        'cid' => Coroutine::getCid()
+                    ]);
+        
+                    $ret = $col->findOne([
+                        '_id' => $ret
+                    ]);
+        
+                    $col->update([
+                        '_id' => $ret->_id
+                    ], [
+                        '$set' => [
+                            'time' => microtime(true) - $s
+                        ]
+                    ]);
+        
+                    $db->close();
+                });
+            }
     });
     
     $s = microtime(true) - $s;
@@ -144,29 +158,39 @@ Array
     $s = microtime(true);
     
     Coroutine\run(function () {
-        for ($n = N; $n--;) {
-            Coroutine::create(function () {
-                $m = new \Wty\Mongodb\Mongodb('mongodb://localhost');
-                $db = $m->setDatabase('test')->getCollection('test');
-                
-                $m->connect();
-                $t = 0;
-                do
-                {
-                    $db->insert([]);
+        $s = microtime(true);
+        //    $pool = null;
+        for($i = N; $i--;)
+        {
+            Coroutine::create(function () use($s){
+                $db = new Wty\Mongodb\Mongodb(URL);
     
-                    if($t++ > 20)break;
-                }
-                while(true);
-                
-                $m->close();
+                $db->setDatabase(DB);
+    
+                $col = $db->getCollection(COLLECTION);
+    
+                $db->connect();
+    
+                $ret = $col->insertOne([
+                    'cid' => Coroutine::getCid()
+                ]);
+    
+                $ret = $col->findOne([
+                    '_id' => $ret
+                ]);
+    
+                $col->update([
+                    '_id' => $ret->_id
+                ], [
+                    '$set' => [
+                        'time' => microtime(true) - $s
+                    ]
+                ]);
+    
+                $db->close();
             });
         }
-    
     });
-    
-    $s = microtime(true) - $s;
-    echo 'Use ' . $s . 's for ' . (N*20) . ' insert without connection pool' . PHP_EOL;
 ```
 
 以上输出

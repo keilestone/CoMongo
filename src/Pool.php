@@ -8,13 +8,10 @@ use Wty\Mongodb\interfaces\PoolInterface;
 
 class Pool implements PoolInterface
 {
-    public const DEFAULT_SIZE = 0;
+    public const DEFAULT_SIZE = 10;
 
     /** @var Channel */
     protected $pool = null;
-
-    /** @var callable */
-    protected $constructor;
 
     /** @var int */
     protected $size;
@@ -22,49 +19,22 @@ class Pool implements PoolInterface
     /** @var int */
     protected $num;
 
-    private $connection;
-
     private ?string $host;
 
     private ?int $port;
+
+    private int $timeout;
 
     public function __construct(int $size = self::DEFAULT_SIZE, int $timeout = 3000)
     {
         $this->size = $size;
 
-        $this->constructor = function () use($timeout){
-            $client = new Client(SWOOLE_SOCK_TCP);
+        $this->timeout = $timeout;
 
-            $client->set([
-                'timeout' => $timeout / 1000,
-                'open_length_check' => true,
-                'package_length_func' => function($data){
-                    $arr = unpack('Vlen', $data);
-
-                    return $arr['len'];
-                },
-
-            ]);
-
-            $retry = 0;
-
-            while($client->connect($this->host, intval($this->port)) == false)
-            {
-                $client->close();
-                if(++$retry > 3)
-                {
-                    throw new RuntimeException('can not connect to server');
-                }
-            }
-
-            return $client;
-        };
-
-        if($size > 0 && !$this->pool)
-        {
+        if(is_null($this->pool))
             $this->pool = new Channel($size);
-            $this->num = 0;
-        }
+
+        $this->num = 0;
     }
 
     /**
@@ -85,8 +55,6 @@ class Pool implements PoolInterface
 
     public function fill(): void
     {
-        if($this->size == 0)return;
-
         while ($this->size > $this->num) {
             $this->make();
         }
@@ -94,34 +62,26 @@ class Pool implements PoolInterface
 
     public function get()
     {
-        if($this->size == 0)
+        if ($this->pool === null)
         {
-            $this->make();
-
-            return $this->connection;
-        }
-        if ($this->pool === null) {
             throw new RuntimeException('Pool has been closed');
         }
+
         if ($this->pool->isEmpty() && $this->num < $this->size)
         {
             $this->make();
         }
+
         return $this->pool->pop();
     }
 
     public function put($connection): void
     {
-        if($this->size == 0)
-        {
-            return;
-        }
-
         if ($this->pool === null) {
             return;
         }
 
-        if ($connection !== null && $connection->isConnected()) {
+        if ($connection !== null && (!$connection->isAuth() || $connection->isConnected())) {
             $this->pool->push($connection);
         } else {
             /* connection broken */
@@ -132,12 +92,6 @@ class Pool implements PoolInterface
 
     public function close(): void
     {
-        if($this->size == 0)
-        {
-            $this->connection->close();
-            return;
-        }
-
         $this->pool->close();
         $this->pool = null;
         $this->num = 0;
@@ -147,14 +101,7 @@ class Pool implements PoolInterface
     {
         $this->num++;
         try {
-            $constructor = $this->constructor;
-            $connection = $constructor();
-
-            if($this->size == 0)
-            {
-                $this->num--;
-                return;
-            }
+            $connection = new Connection($this->host, $this->port, $this->timeout);
         } catch (Throwable $throwable) {
             $this->num--;
             throw $throwable;
