@@ -134,7 +134,7 @@ Coroutine\run(function () use($s){
         });
     }
 });
-echo "use " . (microtime(true) - $s) . "s for " . N . " times operate with connection pool" . PHP_EOL;
+echo "use " . (microtime(true) - $s) . "s for " . N . " times operations with connection pool" . PHP_EOL;
 
 $s = microtime(true);
 
@@ -175,14 +175,14 @@ Coroutine\run(function () use($s){
 });
 
 
-echo "use " . (microtime(true) - $s) . "s for " . N . " times operate without connection pool" . PHP_EOL;
+echo "use " . (microtime(true) - $s) . "s for " . N . " times operations without connection pool" . PHP_EOL;
 ```
 
 以上输出
 ```
-use 0.3707070350647s for 1024 times operate with connection pool
+use 0.3707070350647s for 1024 times operations with connection pool
 
-use 1.1790390014648s for 1024 times operate without connection pool
+use 1.1790390014648s for 1024 times operations without connection pool
 ```
 
 使用连接池连接数量稳定在10个
