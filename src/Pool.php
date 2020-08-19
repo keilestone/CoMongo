@@ -81,7 +81,7 @@ class Pool implements PoolInterface
             return;
         }
 
-        if ($connection !== null && (!$connection->isAuth() || $connection->isConnected())) {
+        if ($connection !== null && $connection->isConnected()) {
             $this->pool->push($connection);
         } else {
             /* connection broken */
@@ -102,6 +102,7 @@ class Pool implements PoolInterface
         $this->num++;
         try {
             $connection = new Connection($this->host, $this->port, $this->timeout);
+            $connection->connect();
         } catch (Throwable $throwable) {
             $this->num--;
             throw $throwable;

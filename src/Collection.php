@@ -316,7 +316,7 @@ class Collection
     {
         $opts['limit'] = 1;
 
-        return $this->find($query, $opts)->getDocs()[0];
+        return $this->find($query, $opts)->getDocs()[0] ?? null;
     }
 
     /**

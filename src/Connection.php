@@ -1,8 +1,10 @@
 <?php
 namespace Wty\Mongodb;
 
+use MongoDB\Driver\Exception\AuthenticationException;
 use RuntimeException;
 use Swoole\Coroutine\Client;
+use Wty\Mongodb\Authenticate\Scram;
 use Wty\Mongodb\interfaces\PoolInterface;
 use function MongoDB\BSON\fromPHP;
 use function MongoDB\BSON\toPHP;
@@ -23,6 +25,7 @@ class Connection
     private int $port;
     private int $timeout;
 
+    private ?array $dbVersion = null;
 
     public function __construct(string $host, int $port, int $timeout = 3000)
     {
@@ -47,15 +50,70 @@ class Connection
         return $this->client->isConnected();
     }
 
-    public function setAuth()
+    /**
+     * @return array | null
+     */
+    public function getDbVersion(): ?array
     {
-        $this->auth = true;
+        return $this->dbVersion;
     }
 
-    public function isAuth(): bool
+    /**
+     * @param array $dbVersion
+     */
+    public function setDbVersion(array $dbVersion): void
     {
-        return $this->auth;
+        $this->dbVersion = $dbVersion;
     }
+
+    public function setAuth(?string $username, ?string $password, string $db, string $authAlgo): bool
+    {
+        if(is_null($username) || $this->auth)
+            return true;
+
+        $ret = $this->runCmd($db, [
+            'isMaster' => 1,
+        ], [
+            'saslSupportedMechs' => $db . '.' . $username
+        ]);
+//
+        if(is_null($ret))
+        {
+            return false;
+        }
+
+        if($ret->ismaster)
+        {
+            $allowMechs = $ret->saslSupportedMechs;
+
+            if(is_null($authAlgo))
+            {
+                if(in_array('SCRAM-SHA-256', $allowMechs))
+                {
+                    $authAlgo = 'SCRAM-SHA-256';
+                }
+                elseif (in_array('SCRAM-SHA-1', $allowMechs))
+                {
+                    $authAlgo = 'SCRAM-SHA-1';
+                }
+            }
+        }
+        elseif($ret->primary)
+        {
+
+        }
+
+        $s = new Scram($this, $db, $username, $password);
+
+        if($s->auth($authAlgo))
+        {
+            $this->auth = true;
+            return true;
+        }
+
+        return false;
+    }
+
 
     public function connect()
     {
@@ -320,7 +378,7 @@ class Connection
 
         $reply = $this->query($db . '.$cmd', $command,0, 1);
 
-        if(empty($reply->getDocs()))
+        if(is_null($reply) || empty($reply->getDocs()))
             return null;
 
         if(empty($reply->getDocs()[0]) || $reply->getDocs()[0]->ok != 1)

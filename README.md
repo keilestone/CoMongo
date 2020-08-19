@@ -3,8 +3,8 @@
 ```php
 Swoole\Coroutine::create(function (){
     $m = new \Wty\Mongodb\Mongodb('mongodb://localhost');
-    $m->connect();
     $db = $m->setDatabase('test')->getCollection('test');
+    $m->connect();
 
     $r = $db->insertOne(['name' => 'test']);
 
@@ -14,7 +14,7 @@ Swoole\Coroutine::create(function (){
         'name' => 'test'
     ]);
 
-    print_r($r->getDocs());
+    print_r($r);
 
     $r = $db->findOneAndUpdate([
         'name' => 'test'
@@ -29,13 +29,13 @@ Swoole\Coroutine::create(function (){
         'name' => 'test'
     ]);
 
-    print_r($r->getDocs());
+    var_dump($r);
 
     $r = $db->findOne([
         'name' => 'test2'
     ]);
 
-    print_r($r->getDocs());
+    print_r($r);
 
 
     $r = $db->update(['name' => 'test2'], [
@@ -44,160 +44,145 @@ Swoole\Coroutine::create(function (){
         ]
     ]);
 
-   print_r($r);
-    
+    print_r($r);
+
     $m->close();
 });
 ```
 
 以上输出
 ```
-Array
+MongoDB\BSON\ObjectId Object
 (
-    [ids] => Array
-        (
-            [0] => MongoDB\BSON\ObjectId Object
-                (
-                    [oid] => 5f3277dc817fab3971077751
-                )
-
-        )
-
-    [count] => 1
-)
-Array
-(
-    [0] => stdClass Object
-        (
-            [_id] => MongoDB\BSON\ObjectId Object
-                (
-                    [oid] => 5f3277dc817fab3971077751
-                )
-
-            [name] => test
-        )
-
+    [oid] => 5f3c922bec2c3a16535cbf11
 )
 stdClass Object
 (
     [_id] => MongoDB\BSON\ObjectId Object
         (
-            [oid] => 5f3277dc817fab3971077751
+            [oid] => 5f3c922bec2c3a16535cbf11
         )
 
     [name] => test
 )
-Array
+stdClass Object
 (
-)
-Array
-(
-    [0] => stdClass Object
+    [_id] => MongoDB\BSON\ObjectId Object
         (
-            [_id] => MongoDB\BSON\ObjectId Object
-                (
-                    [oid] => 5f3277dc817fab3971077751
-                )
-
-            [name] => test2
-            [value] => 2222
+            [oid] => 5f3c922bec2c3a16535cbf11
         )
 
+    [name] => test
+)
+NULL
+stdClass Object
+(
+    [_id] => MongoDB\BSON\ObjectId Object
+        (
+            [oid] => 5f3c922214c3b6525356bf91
+        )
+
+    [name] => test2
+    [value] => 2222
 )
 1
 ```
 
 连接池
 ```php
-    Runtime::enableCoroutine();
-    
-    const N = 1024;
-    
-    $s = microtime(true);
-    
-    Coroutine\run(function () {
-            $pool = new \Wty\Mongodb\Pool(10);
-        
-            $s = microtime(true);
-        
-            for($i = N; $i--;)
-            {
-                Coroutine::create(function () use($pool, $s){
-                    $db = new Wty\Mongodb\Mongodb(URL, $pool);
-        
-                    $db->setDatabase(DB);
-        
-                    $col = $db->getCollection(COLLECTION);
-        
-                    $db->connect();
-        
-                    $ret = $col->insertOne([
-                        'cid' => Coroutine::getCid()
-                    ]);
-        
-                    $ret = $col->findOne([
-                        '_id' => $ret
-                    ]);
-        
-                    $col->update([
-                        '_id' => $ret->_id
-                    ], [
-                        '$set' => [
-                            'time' => microtime(true) - $s
-                        ]
-                    ]);
-        
-                    $db->close();
-                });
-            }
-    });
-    
-    $s = microtime(true) - $s;
-    echo 'Use ' . $s . 's for ' . (N*20) . ' insert with connection pool' . PHP_EOL;
-    
-    $s = microtime(true);
-    
-    Coroutine\run(function () {
-        $s = microtime(true);
-        //    $pool = null;
-        for($i = N; $i--;)
-        {
-            Coroutine::create(function () use($s){
-                $db = new Wty\Mongodb\Mongodb(URL);
-    
-                $db->setDatabase(DB);
-    
-                $col = $db->getCollection(COLLECTION);
-    
-                $db->connect();
-    
-                $ret = $col->insertOne([
-                    'cid' => Coroutine::getCid()
-                ]);
-    
-                $ret = $col->findOne([
-                    '_id' => $ret
-                ]);
-    
-                $col->update([
-                    '_id' => $ret->_id
-                ], [
-                    '$set' => [
-                        'time' => microtime(true) - $s
-                    ]
-                ]);
-    
-                $db->close();
-            });
-        }
-    });
+const URL = 'mongodb://localhost';
+
+const DB = 'test';
+
+const COLLECTION = 'test';
+
+$s = microtime(true);
+Coroutine\run(function () use($s){
+    $pool = new \Wty\Mongodb\Pool( 10);
+
+//    $pool = null;
+    for($i = N; $i--;)
+    {
+        Coroutine::create(function () use($pool, $s){
+            $db = new Wty\Mongodb\Mongodb(URL, $pool);
+
+            $db->setDatabase(DB);
+
+            $col = $db->getCollection(COLLECTION);
+
+            $db->connect();
+
+//           print_r($r);
+
+            $ret = $col->insertOne([
+                'cid' => Coroutine::getCid()
+            ]);
+
+            $ret = $col->findOne([
+                '_id' => $ret
+            ]);
+
+            $col->update([
+                '_id' => $ret->_id
+            ], [
+                '$set' => [
+                    'time' => microtime(true) - $s
+                ]
+            ]);
+
+            $db->close();
+        });
+    }
+});
+echo "use " . (microtime(true) - $s) . "s for " . N . " times operate with connection pool" . PHP_EOL;
+
+$s = microtime(true);
+
+Coroutine\run(function () use($s){
+    //    $pool = null;
+    for($i = N; $i--;)
+    {
+        Coroutine::create(function () use($s){
+            $db = new Wty\Mongodb\Mongodb(URL);
+
+            $db->setDatabase(DB);
+
+            $col = $db->getCollection(COLLECTION);
+
+            $db->connect();
+
+//           print_r($r);
+
+            $ret = $col->insertOne([
+                'cid' => Coroutine::getCid()
+            ]);
+
+            $ret = $col->findOne([
+                '_id' => $ret
+            ]);
+
+            $col->update([
+                '_id' => $ret->_id
+            ], [
+                '$set' => [
+                    'time' => microtime(true) - $s
+                ]
+            ]);
+
+            $db->close();
+        });
+    }
+});
+
+
+echo "use " . (microtime(true) - $s) . "s for " . N . " times operate without connection pool" . PHP_EOL;
 ```
 
 以上输出
 ```
-Use 2.1558599472046s for 20480 insert with connection pool
+use 0.3707070350647s for 1024 times operate with connection pool
 
-Use 21.772501945496s for 20480 insert without connection pool
+use 1.1790390014648s for 1024 times operate without connection pool
 ```
 
-使用连接池连接数量稳定在20
+使用连接池连接数量稳定在10个

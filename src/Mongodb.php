@@ -21,9 +21,8 @@ class Mongodb
     private string $defaultDb;
     private ?string $username = null;
     private ?string $password = null;
-    private ?string $authAlgo = null;
+    private string $authAlgo = 'SCRAM-SHA-256';
     private bool $ssl = false;
-    private ?array $version = null;
 
     private ?string $database = null;
 
@@ -92,16 +91,16 @@ class Mongodb
      */
     public function getVersion(): ?array
     {
-        if(is_null($this->version))
+        if(is_null($this->connection->getDbVersion()))
         {
             $ret = $this->connection->runCmd($this->defaultDb, [
                 'buildInfo' => true
             ], []);
 
-            $this->version = $ret->versionArray;
+            $this->connection->setDbVersion($ret->versionArray);
         }
 
-        return $this->version;
+        return $this->connection->getDbVersion();
     }
 
     private function auth(): bool
@@ -136,7 +135,10 @@ class Mongodb
         foreach ($this->hosts as $host)
         {
             if(is_null($this->pool))
+            {
                 $this->connection = new Connection($host['host'], $host['port']);
+                $this->connection->connect();
+            }
             else
             {
                 $this->pool->setHost($host['host']);
@@ -145,55 +147,10 @@ class Mongodb
                 $this->connection = $this->pool->get();
             }
 
-            $this->connection->connect();
-
             $this->getVersion();
 
-            if($this->connection->isAuth())return;
-
-            $ret = $this->connection->runCmd($this->defaultDb, [
-                'isMaster' => 1,
-            ], [
-                'saslSupportedMechs' => $this->defaultDb . '.' . $this->username
-            ]);
-//
-            if(is_null($ret))
-            {
-                continue;
-            }
-
-            if($ret->ismaster)
-            {
-                if(!is_null($this->username))
-                {
-                    $allowMechs = $ret->saslSupportedMechs;
-
-                    if(is_null($this->authAlgo))
-                    {
-                        if(in_array('SCRAM-SHA-256', $allowMechs))
-                        {
-                            $this->authAlgo = 'SCRAM-SHA-256';
-                        }
-                        elseif (in_array('SCRAM-SHA-1', $allowMechs))
-                        {
-                            $this->authAlgo = 'SCRAM-SHA-1';
-                        }
-                    }
-
-                    $this->auth();
-                }
-                else
-                {
-                    $this->connection->connect();
-                }
-
-                $this->connection->setAuth();
+            if($this->connection->setAuth($this->username, $this->password, $this->defaultDb, $this->authAlgo))
                 return;
-            }
-            elseif($ret->primary)
-            {
-
-            }
         }
 
         throw new ConnectException('can not connect to server');
