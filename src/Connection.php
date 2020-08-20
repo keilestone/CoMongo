@@ -27,6 +27,11 @@ class Connection
 
     private ?array $dbVersion = null;
 
+    private ?string $username = null;
+    private ?string $password;
+    private string $db;
+    private string $authAlgo;
+
     public function __construct(string $host, int $port, int $timeout = 3000)
     {
         $this->host = $host;
@@ -68,6 +73,11 @@ class Connection
 
     public function setAuth(?string $username, ?string $password, string $db, string $authAlgo): bool
     {
+        $this->username = $username;
+        $this->password = $password;
+        $this->authAlgo = $authAlgo;
+        $this->db = $db;
+
         if(is_null($username) || $this->auth)
             return true;
 
@@ -145,6 +155,16 @@ class Connection
         }
 
 //        return $this->client;
+    }
+
+    public function reconnect()
+    {
+        if(is_null($this->client))
+        {
+            throw new RuntimeException('can not reconnect after close or before connect');
+        }
+        $this->connect();
+        $this->setAuth($this->username, $this->password, $this->db, $this->authAlgo);
     }
 
     public function close()
@@ -381,13 +401,13 @@ class Connection
         if(is_null($reply) || empty($reply->getDocs()))
             return null;
 
-        if(empty($reply->getDocs()[0]) || $reply->getDocs()[0]->ok != 1)
+        if($reply->hasFirstDoc() && $reply->getFirstDoc()->ok != 1)
         {
-            $this->error = $reply->getDocs()[0]->errmsg;
+            $this->error = $reply->getFirstDoc()->errmsg;
             return null;
         }
 
-        return $reply->getDocs()[0];
+        return $reply->getFirstDoc();
     }
 
     public function getError()

@@ -71,16 +71,14 @@ class Cursor implements \Iterator
         $this->id = $id;
     }
 
-    /**
-     * @return array
-     */
-    public function getDocs(): array
+    public function getOne()
     {
-        return $this->docs;
+        return $this->docs[0] ?? null;
     }
 
     /**
      * @param string|null $comment
+     * @return Cursor
      */
     public function setComment(?string $comment): self
     {

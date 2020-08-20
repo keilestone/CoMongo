@@ -78,6 +78,19 @@ class Reply
         return $this->docs;
     }
 
+    public function hasFirstDoc()
+    {
+        return count($this->docs) > 0;
+    }
+
+    public function getFirstDoc()
+    {
+        if(empty($this->docs))
+            return null;
+
+        return $this->docs[0];
+    }
+
     /**
      * @return int
      */

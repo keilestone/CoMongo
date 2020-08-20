@@ -175,7 +175,7 @@ class Collection
                 'ordered' => true,
             ], $docs);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
         }
         else
         {
@@ -205,7 +205,7 @@ class Collection
                 'drop' => $this->name,
             ]);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
 
             if(!$reply->ok)
                 return false;
@@ -232,7 +232,7 @@ class Collection
                 'index' => $name,
             ]);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
 
             if(!$reply->ok)
                 return false;
@@ -287,7 +287,7 @@ class Collection
                 'indexes' => $index,
             ]);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
 
             if(!$reply->ok)
                 return false;
@@ -316,7 +316,7 @@ class Collection
     {
         $opts['limit'] = 1;
 
-        return $this->find($query, $opts)->getDocs()[0] ?? null;
+        return $this->find($query, $opts)->getOne();
     }
 
     /**
@@ -347,7 +347,7 @@ class Collection
 
             $ret = $this->db->getManager()->executeCmd($body);
 
-            $doc = $ret->getDocs()[0];
+            $doc = $ret->getFirstDoc();
         }
         else
         {
@@ -390,9 +390,9 @@ class Collection
                 ]
             ]
         ];
-        $ret = $this->aggregate($pipeline, $options)->getDocs();
+        $ret = $this->aggregate($pipeline, $options)->getOne();
 
-        return empty($ret) ? 0 : $ret[0]->count;
+        return empty($ret) ? 0 : $ret->count;
     }
 
     public function deleteOne(array $filter, array $options = [])
@@ -423,7 +423,7 @@ class Collection
                 'writeConcern' => $this->buildWriteConcern(),
             ]);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
 
             if(!$reply->ok)
                 return false;
@@ -472,7 +472,7 @@ class Collection
 
             $replies = $this->getDb()->getManager()->executeCmd($body);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
 
             if(!$reply->ok)
                 return null;
@@ -530,7 +530,7 @@ class Collection
                 'writeConcern' => $this->buildWriteConcern(),
             ]);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
 
             if(!$reply->ok)
                 return null;
@@ -607,7 +607,7 @@ class Collection
                 'query' => (object) $wheres,
             ]);
 
-            $reply = $replies->getDocs()[0];
+            $reply = $replies->getFirstDoc();
 
             if(!$reply->ok)
                 return null;
