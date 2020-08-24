@@ -170,10 +170,10 @@ class Mongodb
     public function close()
     {
         if(is_null($this->pool))
-        {
             $this->connection->close();
-            return;
-        }
-        $this->pool->put($this->connection);
+        else
+            $this->pool->put($this->connection);
+
+        $this->pool = null;
     }
 }
