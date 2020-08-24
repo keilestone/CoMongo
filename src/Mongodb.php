@@ -174,6 +174,6 @@ class Mongodb
         else
             $this->pool->put($this->connection);
 
-        $this->pool = null;
+        $this->connection = null;
     }
 }
