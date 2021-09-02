@@ -3,7 +3,11 @@
 
 namespace Wty\Mongodb;
 
-
+/**
+ * Class Manager
+ * @package Wty\Mongodb
+ *
+ */
 class Manager
 {
     private MongoDB $mongodb;
@@ -17,22 +21,24 @@ class Manager
         $this->mongodb = $mongodb;
     }
 
-    public function executeCmd(array $cmd, array $params = [])
+    public function executeCmd(array $cmd, array $params = []): ?Reply
     {
 //        $this->mongodb->connect();
 
         $serverVer = join('', $this->mongodb->getVersion());
 
+        $connection = $this->mongodb->getConnection();
+
         if ($serverVer > 3600)
         {
             $cmd['$db'] = $this->mongodb->getDatabase();
 
-            $ret = $this->mongodb->getConnection()->msg($cmd, $params);
+            $ret = $connection->msg($cmd, $params);
         }
         else
-            $ret = $this->mongodb->getConnection()->runCmd($this->mongodb->getDatabase(), $cmd, $params);
+            $ret = $connection->runCmd($this->mongodb->getDatabase(), $cmd, $params);
 
-//        $this->mongodb->close();
+        $this->mongodb->release($connection);
 
         return $ret;
     }
@@ -41,18 +47,21 @@ class Manager
     {
 //        $this->mongodb->connect();
 
-        $this->mongodb->getConnection()->killCursors($id);
+        $connection = $this->mongodb->getConnection();
+        $connection->killCursors($id);
 
-//        $this->mongodb->close();
+        $this->mongodb->release($connection);
     }
 
     public function query(string $collection, array $query, int $toSkip = 0, int $num = 255, array $selector = [], array $flags = []): ?Reply
     {
 //        $this->mongodb->connect();
 
-        $ret = $this->mongodb->getConnection()->query($collection, $query, $toSkip, $num, $selector, $flags);
+        $connection = $this->mongodb->getConnection();
 
-//        $this->mongodb->close();
+        $ret = $connection->query($collection, $query, $toSkip, $num, $selector, $flags);
+
+        $this->mongodb->release($connection);
 
         return $ret;
     }
@@ -61,9 +70,11 @@ class Manager
     {
 //        $this->mongodb->connect();
 
-        $ret = $this->mongodb->getConnection()->insert($collection, $docs, $flags);
+        $connection = $this->mongodb->getConnection();
 
-//        $this->mongodb->close();
+        $ret = $connection->insert($collection, $docs, $flags);
+
+        $this->mongodb->release($connection);
 
         return $ret;
     }
@@ -72,9 +83,11 @@ class Manager
     {
 //        $this->mongodb->connect();
 
-        $ret = $this->mongodb->getConnection()->getMore($collection, $number, $cid);
+        $connection = $this->mongodb->getConnection();
 
-//        $this->mongodb->close();
+        $ret = $connection->getMore($collection, $number, $cid);
+
+        $this->mongodb->release($connection);
 
         return $ret;
     }

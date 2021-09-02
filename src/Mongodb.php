@@ -6,6 +6,7 @@ namespace Wty\Mongodb;
 
 use Swoole\Coroutine;
 use Wty\Mongodb\Authenticate\Scram;
+use Wty\Mongodb\Exceptions\AuthException;
 use Wty\Mongodb\Exceptions\ConnectException;
 use Wty\Mongodb\interfaces\PoolInterface;
 
@@ -26,15 +27,17 @@ class Mongodb
 
     private ?string $database = null;
 
-    private ?PoolInterface $pool;
+    private ?PoolInterface $pool = null;
 
-    private array $connectionArr = [];
+//    private array $connectionArr = [];
 
     private Manager $manager;
 
     public function __construct(string $url, $pool = null)
     {
         $config = Utils::parseUrl($url);
+
+//        print_r('====new mongodb====');
 
         foreach ($config['query'] as $k => $v)
         {
@@ -65,6 +68,7 @@ class Mongodb
 
         $this->manager = new Manager($this);
 
+
         $this->pool = $pool;
     }
 
@@ -91,89 +95,123 @@ class Mongodb
      */
     public function getVersion(): ?array
     {
-        if(is_null($this->connection->getDbVersion()))
+        /**
+         * @var Connection $connection
+         */
+        $connection = $this->getConnection();
+
+        if(is_null($connection->getDbVersion()))
         {
-            $ret = $this->connection->runCmd($this->defaultDb, [
+            $ret = $connection->runCmd($this->defaultDb, [
                 'buildInfo' => true
             ], []);
 
-            $this->connection->setDbVersion($ret->versionArray);
+            $connection->setDbVersion($ret->getFirstDoc()->versionArray);
         }
 
-        return $this->connection->getDbVersion();
-    }
+        $version = $connection->getDbVersion();
 
-    private function auth(): bool
-    {
-        if(is_null($this->username))
-            return true;
+        $this->release($connection);
 
-        $s = new Scram($this->connection, $this->defaultDb, $this->username, $this->password);
-
-        return $s->auth($this->authAlgo);
+        return $version;
     }
 
     public function getCollection(string $name): Collection
     {
-        if(!isset($this->connectionArr[$name]))
-            $this->connectionArr[$name] = new Collection($this, $name);
-
-        return $this->connectionArr[$name];
+        return new Collection($this, $name);
     }
 
     public function __destruct()
     {
-//        $this->close();
+        $this->close();
     }
 
-    public function connect()
+    public function connect(): void
     {
-        if(!is_null($this->connection))return;
-
         shuffle($this->hosts);
 
         foreach ($this->hosts as $host)
         {
             if(is_null($this->pool))
             {
-                $this->connection = new Connection($host['host'], $host['port']);
-                $this->connection->connect();
+                if(!is_null($this->connection))
+                    throw new \Exception('还有连接未关闭');
+
+                $connection = new Connection($host['host'], $host['port'], 3000);
+                $connection->connect();
+
+                $connection->setAuth($this->username, $this->password, $this->defaultDb, $this->authAlgo);
             }
             else
             {
                 $this->pool->setHost($host['host']);
                 $this->pool->setPort($host['port']);
 
-                $this->connection = $this->pool->get();
+                /**
+                 * @var Connection $connection
+                 */
+                $connection = $this->pool->get();
             }
 
-            $this->getVersion();
+            if(!$connection->isAuth() && !$connection->setAuth($this->username, $this->password, $this->defaultDb, $this->authAlgo))
+            {
+                throw new AuthException();
+            }
 
-            if($this->connection->setAuth($this->username, $this->password, $this->defaultDb, $this->authAlgo))
-                return;
+            if(is_null($this->pool))
+                $this->connection = $connection;
+            else
+                $this->pool->put($connection);
+
+            return;
         }
-
-        throw new ConnectException('can not connect to server');
     }
 
-    public function getManager()
+    public function getManager(): Manager
     {
         return $this->manager;
     }
 
-    public function getConnection()
+    public function getConnection(): Connection
     {
+        if(is_null($this->connection))
+        {
+            if(is_null($this->pool))
+                throw new ConnectException('have no connection before connect');
+
+            $connection = $this->pool->get();
+            if(!$connection->isAuth())
+            {
+                $connection->setAuth($this->username, $this->password, $this->defaultDb, $this->authAlgo);
+            }
+            
+            return $connection;
+        }
+
         return $this->connection;
     }
 
-
-    public function close()
+    public function release(Connection $connection): void
     {
-        if(is_null($this->pool))
-            $this->connection->close();
-        else
-            $this->pool->put($this->connection);
+        if(!is_null($this->pool))
+        {
+            $this->pool->put($connection);
+        }
+    }
 
-        $this->connection = null;
+
+    public function close(): void
+    {
+        if(!is_null($this->pool))
+        {
+            $this->pool->close();
+            $this->pool = null;
+        }
+        else
+        {
+            $this->connection->close();
+
+            $this->connection = null;
+        }
     }
 }

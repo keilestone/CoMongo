@@ -9,6 +9,13 @@ use Wty\Mongodb\interfaces\PoolInterface;
 use function MongoDB\BSON\fromPHP;
 use function MongoDB\BSON\toPHP;
 
+/**
+ * Class Connection
+ * @package Wty\Mongodb
+ *
+ *
+ * @See https://elemefe.gitbooks.io/mongodb/content/reference/write-protocol.html
+ */
 class Connection
 {
     private ?Client $client = null;
@@ -20,6 +27,14 @@ class Connection
     private $recieve;
 
     private bool $auth = false;
+
+    /**
+     * @return bool
+     */
+    public function isAuth(): bool
+    {
+        return $this->auth;
+    }
 
     private string $host;
     private int $port;
@@ -79,7 +94,10 @@ class Connection
         $this->db = $db;
 
         if(is_null($username) || $this->auth)
+        {
+            $this->auth = true;
             return true;
+        }
 
         $ret = $this->runCmd($db, [
             'isMaster' => 1,
@@ -92,9 +110,11 @@ class Connection
             return false;
         }
 
-        if($ret->ismaster)
+        $doc = $ret->getFirstDoc();
+
+        if($doc->ismaster)
         {
-            $allowMechs = $ret->saslSupportedMechs;
+            $allowMechs = $doc->saslSupportedMechs;
 
             if(is_null($authAlgo))
             {
@@ -108,7 +128,7 @@ class Connection
                 }
             }
         }
-        elseif($ret->primary)
+        elseif($doc->primary)
         {
 
         }
@@ -407,7 +427,7 @@ class Connection
             return null;
         }
 
-        return $reply->getFirstDoc();
+        return $reply;
     }
 
     public function getError()

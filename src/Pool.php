@@ -11,7 +11,7 @@ class Pool implements PoolInterface
     public const DEFAULT_SIZE = 10;
 
     /** @var Channel */
-    protected $pool = null;
+    protected ?Channel $pool = null;
 
     /** @var int */
     protected $size;
@@ -27,6 +27,7 @@ class Pool implements PoolInterface
 
     public function __construct(int $size = self::DEFAULT_SIZE, int $timeout = 3000)
     {
+//        print_r('====new pool=====');
         $this->size = $size;
 
         $this->timeout = $timeout;
@@ -67,12 +68,31 @@ class Pool implements PoolInterface
             throw new RuntimeException('Pool has been closed');
         }
 
-        if ($this->pool->isEmpty() && $this->num < $this->size)
+        $flag = false;
+        do
         {
-            $this->make();
-        }
+//            echo 'is empty?';
+//            var_dump($this->pool->isEmpty());
+//            echo '===============';
+//            var_dump($this->num);
+            if ($this->pool->isEmpty() && $this->num < $this->size)
+            {
+                $this->make();
+            }
 
-        return $this->pool->pop();
+//            print_r('get pool   ');
+//            var_dump($this->pool->length());
+
+            $connection = $this->pool->pop();
+
+            if(!$connection->isConnected())
+            {
+                $flag = true;
+                $this->num -= 1;
+            }
+        }while ($flag);
+
+        return $connection;
     }
 
     public function put($connection): void
@@ -83,6 +103,9 @@ class Pool implements PoolInterface
 
         if ($connection !== null && $connection->isConnected()) {
             $this->pool->push($connection);
+
+//            print_r("put:  ");
+//            var_dump($this->pool->length());
         } else {
             /* connection broken */
             $this->num -= 1;
@@ -99,6 +122,7 @@ class Pool implements PoolInterface
 
     protected function make(): void
     {
+//        echo 'make' . '-------------';
         $this->num++;
         try {
             $connection = new Connection($this->host, $this->port, $this->timeout);

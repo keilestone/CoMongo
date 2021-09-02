@@ -51,7 +51,9 @@ class Cursor implements \Iterator
 
     private int $keyPos = 0;
 
-    private const DEFAULT_QUERY_MAX = 2000;
+    private const DEFAULT_QUERY_MAX = 4000;
+
+    private bool $isFinished = false;
 
     /**
      * Cursor constructor.
@@ -61,7 +63,7 @@ class Cursor implements \Iterator
      * @param bool $explain
      * @param int $id
      */
-    public function __construct(?Collection $collection, array $query, array $fields, bool $explain = false, int $id = 0)
+    public function __construct(?Collection $collection, array $query, array $fields, bool $explain = false, int $id = 0, array $doc = [])
     {
         $this->collection = $collection;
         $this->query = $query;
@@ -69,6 +71,8 @@ class Cursor implements \Iterator
 
         $this->explain = $explain;
         $this->id = $id;
+        
+        $this->docs = $doc;
     }
 
     public function getOne()
@@ -237,9 +241,9 @@ class Cursor implements \Iterator
         return $ext;
     }
 
-    public function cursorNext(): ?array
+    public function cursorNext(): bool
     {
-        if($this->finished())
+        if($this->isFinished)
         {
             if($this->id != 0)
             {
@@ -247,47 +251,48 @@ class Cursor implements \Iterator
                 $this->id = 0;
             }
 
-            return null;
+            return false;
         }
 
         if(!$this->start && $this->id == 0)
         {
             $reply = $this->collection->getDb()->getManager()->query($this->collection->fullName(), $this->buildQuery(),
-                $this->skip, $this->limit == 0 ? self::DEFAULT_QUERY_MAX : $this->limit, $this->fields, ['tailable' => $this->tailable, 'await' => $this->await]);
+                $this->skip, $this->limit == 0 ? self::DEFAULT_QUERY_MAX : -$this->limit, $this->fields, ['tailable' => $this->tailable, 'await' => $this->await]);
+
+            if(is_null($reply))return false;
 
             if(Utils::checkFlags($reply->getFlags()))
             {
-                return null;
+                return false;
             }
 
             $this->id = $reply->getCid();
 
             $this->addBatch($reply->getDocs());
         }
-        elseif (empty($this->docs) && $this->id != 0)
+        elseif ($this->id != 0)
         {
             $reply = $this->collection->getDb()->getManager()
                 ->getMore($this->collection->fullName(), $this->limit == 0 ? self::DEFAULT_QUERY_MAX : $this->limit, $this->id);
 
             if(Utils::checkFlags($reply->getFlags()))
             {
-                return null;
+                return false;
             }
 
             $this->addBatch($reply->getDocs());
 
             $this->id = $reply->getCid();
         }
-        elseif (empty($this->docs))
-        {
-            return null;
-        }
 
-        return $this->docs;
+        if($this->id === 0)$this->isFinished = true;
+
+        return true;
     }
 
     public function cursorRewind()
     {
+        $this->isFinished = false;
         $this->start = false;
         $this->docs = [];
         $this->collection->getDb()->getManager()->killCursors($this->id);
@@ -304,10 +309,12 @@ class Cursor implements \Iterator
             'limit' => $this->limit
         ]);
 
-        if(empty($ret))
+        $doc = $ret->getFirstDoc();
+
+        if(empty($doc))
             return null;
 
-        return $ret->n ?? 0;
+        return $doc->n ?? 0;
     }
 
     public function distinct($key)
@@ -319,50 +326,45 @@ class Cursor implements \Iterator
             'key' => $key,
         ]);
 
-        if(empty($ret))
+        $doc = $ret->getFirstDoc();
+
+        if(empty($doc))
             return null;
 
-        return $ret['values'] ?? [];
+        return $doc->values ?? [];
     }
 
     public function all(): array
     {
-        $docs = [];
-
-        do
+        while ($this->cursorNext())
         {
-            $doc = $this->cursorNext();
-            array_push($docs, $doc);
-        }while(empty($docs));
 
-        return $docs;
+        }
+
+        return $this->docs;
     }
 
     public function explain()
     {
         $self = clone $this;
 
-        return $self->setSort(null)->cursorNext();
-    }
+        $self->setSort(null)->cursorNext();
 
-    public function finished(): bool
-    {
-        if($this->limit == 0)
-            return false;
-        elseif($this->travelPos >= abs($this->limit))
-            return true;
-
-        return false;
+        return $self->docs;
     }
 
     public function addBatch(array $docs): self
     {
         $this->start = true;
 
-        foreach ($docs as $doc)
-        {
-            $this->docs[] = $doc;
-        }
+//        foreach ($docs as $doc)
+//        {
+//            $this->docs[] = $doc;
+//        }
+
+        array_push($this->docs, ...$docs);
+
+//        print_r($this->docs);
 
         return $this;
     }
@@ -403,8 +405,7 @@ class Cursor implements \Iterator
                 $this->docs = [];
                 $this->travelPos = 0;
 
-                $next = $this->cursorNext();
-                if(!is_null($next))
+                if($this->cursorNext())
                 {
                     return true;
                 }

@@ -134,9 +134,11 @@ class Collection
         return [$docs, $ids];
     }
 
-    public function insertOne(array $doc)
+    public function insertOne(array $doc): ?ObjectId
     {
         $ret = $this->insert($doc);
+
+        if(is_null($ret))return null;
 
         return $ret['ids'][0];
     }
@@ -179,11 +181,13 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getManager()->executeCmd( ['insert' => $this->name], [
+            $replies = $this->getDb()->getManager()->executeCmd( ['insert' => $this->name], [
                 'documents' => $docs,
                 'ordered' => true,
                 'writeConcern' => $this->buildWriteConcern()
             ]);
+
+            $reply = $replies->getFirstDoc();
         }
 
         if(empty($reply))
@@ -212,7 +216,9 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getManager()->executeCmd( ['drop' => $this->name]);
+            $replies = $this->getDb()->getManager()->executeCmd( ['drop' => $this->name]);
+
+            $reply = $replies->getFirstDoc();
 
             if(empty($reply))
                 return false;
@@ -239,7 +245,9 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getManager()->executeCmd( ['dropIndexes' => $this->name], ['index' => $name]);
+            $replies = $this->getDb()->getManager()->executeCmd( ['dropIndexes' => $this->name], ['index' => $name]);
+
+            $reply = $replies->getFirstDoc();
 
             if(empty($reply))
                 return false;
@@ -303,13 +311,20 @@ class Collection
         return true;
     }
 
-    public function find(array $query, array $opts = [])
+    private function find(array $query, array $opts = []): Cursor
     {
         $this->newCursor($query, $opts);
 
         $this->cursor->cursorNext();
 
         return $this->cursor;
+    }
+    
+    public function findAll(array $query, array $opts = []): array
+    {
+        $cursor = $this->find($query, $opts);
+        
+        return $cursor->all();
     }
 
     public function findOne(array $query, array $opts = [])
@@ -322,9 +337,9 @@ class Collection
     /**
      * @param array $pipeline
      * @param array $options
-     * @return Cursor |null
+     * @return ?array
      */
-    public function aggregate(array $pipeline, array $options = []): ?\Traversable
+    public function aggregate(array $pipeline, array $options = []): ?array
     {
         if(!isset($options['explain']))
         {
@@ -347,27 +362,30 @@ class Collection
 
             $ret = $this->db->getManager()->executeCmd($body);
 
+            if(is_null($ret))return null;
+
             $doc = $ret->getFirstDoc();
         }
         else
         {
             $options['pipeline'] = $pipeline;
 
-            $doc = $this->getDb()->getManager()->executeCmd([
+            $ret = $this->db->getManager()->executeCmd([
                 'aggregate' => $this->name
             ], $options);
 
-            if(empty($doc))
+            if(empty($ret))
                 return null;
+
+            $doc = $ret->getFirstDoc();
         }
 
         if(isset($options['explain']))
             return $doc;
 
-        $cursor = new Cursor($this, $options, [], false, $doc->cursor->id);
-        $cursor->addBatch($doc->cursor->firstBatch);
+        $cursor = new Cursor($this, $options, [], false, $doc->cursor->id, $doc->cursor->firstBatch);
 
-        return $cursor;
+        return $cursor->all();
     }
 
     public function count(array $filter, array $options = [])
@@ -430,7 +448,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getManager()->executeCmd(
+            $replies = $this->getDb()->getManager()->executeCmd(
                 [
                     'delete' => $this->name
                 ],
@@ -445,6 +463,8 @@ class Collection
                     'writeConcern' => $this->buildWriteConcern()
                 ]
             );
+
+            $reply = $replies->getFirstDoc();
 
             if(empty($reply))
                 return false;
@@ -479,12 +499,14 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getManager()->executeCmd(
+            $replies = $this->getDb()->getManager()->executeCmd(
                 [
                     'findAndModify' => $this->name
                 ],
                 $options
             );
+
+            $reply = $replies->getFirstDoc();
 
             if(empty($reply))
                 return null;
@@ -537,7 +559,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getManager()->executeCmd(
+            $replies = $this->getDb()->getManager()->executeCmd(
                 [
                     'update' => $this->name
                 ],
@@ -554,6 +576,8 @@ class Collection
                     'writeConcern' => $this->buildWriteConcern()
                 ]
             );
+
+            $reply = $replies->getFirstDoc();
 
             if(empty($reply))
                 return null;
@@ -582,12 +606,14 @@ class Collection
         $options['reduce'] = $reduce;
         $options['out'] = $out;
 
-        $reply = $this->getDb()->getManager()->executeCmd(
+        $replies = $this->getDb()->getManager()->executeCmd(
             [
                 'mapReduce' => $this->name
             ],
             $options
         );
+
+        $reply = $replies->getFirstDoc();
 
         if(empty($reply))
             return null;
@@ -614,7 +640,7 @@ class Collection
         }
         else
         {
-            $reply = $this->getDb()->getManager()->executeCmd(
+            $replies = $this->getDb()->getManager()->executeCmd(
                 [
                     'distinct' => $this->name
                 ],
@@ -623,6 +649,8 @@ class Collection
                     'query' => (object) $wheres,
                 ]
             );
+
+            $reply = $replies->getFirstDoc();
 
             if(empty($reply))
                 return 0;

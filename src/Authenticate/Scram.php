@@ -50,8 +50,10 @@ class Scram
 
 //        var_dump($rs);
 
-        $conversationId = $rs->conversationId;
-        $serverFirst = base64_decode($rs->payload);
+        $doc = $rs->getFirstDoc();
+
+        $conversationId = $doc->conversationId;
+        $serverFirst = base64_decode($doc->payload);
 
         preg_match_all('@(\w+)=([^,]*)@isu', $serverFirst, $matches);
 
@@ -110,7 +112,9 @@ class Scram
             throw new AuthException($this->con->getError());
         }
 
-        $payload = base64_decode($rs->payload);
+        $doc = $rs->getFirstDoc();
+
+        $payload = base64_decode($doc->payload);
 
         preg_match_all('@(\w+)=([^,]*)@isu', $payload, $matches);
 
@@ -129,7 +133,7 @@ class Scram
             throw new AuthException('Server returned an invalid signature.');
         }
 
-        if(!$rs->done)
+        if(!$doc->done)
         {
             $rs = $this->con->runCmd($this->db, [
                 'saslContinue' => 1,
@@ -143,7 +147,9 @@ class Scram
                 throw new AuthException($this->con->getError());
             }
 
-            if($rs->done == false)
+            $doc = $rs->getFirstDoc();
+
+            if($doc->done == false)
             {
                 throw new AuthException( 'failed to authenticate');
             }
